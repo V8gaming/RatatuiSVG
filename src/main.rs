@@ -4,7 +4,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{io, time::Duration, vec, fs::File, io::Write};
-use tui::{
+use ratatui::{
     backend::CrosstermBackend,
     text::Spans,
     Terminal,

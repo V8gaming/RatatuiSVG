@@ -8,8 +8,8 @@ use std::{
     fs::File,
 
 };
-use tui::widgets::GraphType::Line as OtherLine;
-use tui::{
+use ratatui::widgets::GraphType::Line as OtherLine;
+use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
