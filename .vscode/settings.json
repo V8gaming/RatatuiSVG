@@ -1,5 +1,6 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./ratatui/Cargo.toml"
+        "./ratatui/Cargo.toml",
+        "./Cargo.toml"
     ]
 }
