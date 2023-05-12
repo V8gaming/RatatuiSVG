@@ -1,4 +1,4 @@
-[![BuildNightly](https://github.com/V8gaming/RatatuiSVG/actions/workflows/rust.yml/badge.svg)](https://github.com/V8gaming/RatatuiSVG/actions/workflows/rust.yml)
+[![BuildNightly](https://github.com/V8gaming/RatatuiSVG/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/V8gaming/RatatuiSVG/actions/workflows/rust.yml)
 
 Port for tui to ratatui
 
