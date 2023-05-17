@@ -1,13 +1,7 @@
-use crate::INDEX;
+use crate::canvas::canvas_draw;
 use crate::svg::{render_svg, SvgPoints};
-use regex::Regex;
-use std::io::BufWriter;
-use std::{
-    collections::HashMap,
-    io::{self, Stdout,Write},
-    fs::File,
-
-};
+use crate::widget::{Svg, SvgDataset};
+use crate::INDEX;
 use ratatui::widgets::GraphType::Line as OtherLine;
 use ratatui::{
     backend::CrosstermBackend,
@@ -15,41 +9,59 @@ use ratatui::{
     style::{Color, Style},
     symbols::{self, DOT},
     text::Spans,
-    widgets::{Axis, Block, Borders, Chart, Dataset, Tabs},
+    widgets::{Block, Borders, Tabs},
     Frame, Terminal,
 };
+use regex::Regex;
+use std::io::BufWriter;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{self, Stdout, Write},
+};
+use itertools::Itertools;
+
 /// render the tabs in a ratatui terminal
 pub fn draw(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     tabs: Vec<Spans>,
-    svgs: Vec<Vec<&str>>
+    svgs: HashMap<String, Vec<String>>,
 ) -> Result<(), io::Error> {
     let draw = terminal.draw(|frame| {
         let terminal_rect = frame.size();
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
-            .constraints(
-                [
-                    Constraint::Percentage(100),
-                ]
-                .as_ref(),
-            )
+            .constraints([Constraint::Percentage(100)].as_ref())
             .split(terminal_rect);
 
         let left_tabs = Tabs::new(tabs)
-        .block(
-            Block::default()
-                .title("Graphical renderer")
-                .borders(Borders::all())
-                .style(Style::default().fg(Color::White)),
-        )
-        .highlight_style(Style::default().fg(Color::Yellow))
-        .divider(DOT)
-        .select(INDEX.load(std::sync::atomic::Ordering::Relaxed).try_into().unwrap());
+            .block(
+                Block::default()
+                    .title("Graphical renderer")
+                    .borders(Borders::all())
+                    .style(Style::default().fg(Color::White)),
+            )
+            .highlight_style(Style::default().fg(Color::Yellow))
+            .divider(DOT)
+            .select(
+                INDEX
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    .try_into()
+                    .unwrap(),
+            );
         frame.render_widget(left_tabs, chunks[0]);
-
-        draw_svg(svgs[INDEX.load(std::sync::atomic::Ordering::Relaxed) as usize].clone(), frame, chunks[0], None);
+        let keys = svgs.keys().sorted().cloned().collect::<Vec<String>>();
+        let index: usize = INDEX
+            .load(std::sync::atomic::Ordering::Relaxed)
+            .try_into()
+            .unwrap();
+        draw_svg(
+            svgs.get(&keys[index]).unwrap().clone(),
+            frame,
+            chunks[0],
+            None,
+        );
     });
     drop(draw);
     Ok(())
@@ -57,12 +69,11 @@ pub fn draw(
 
 /// parse and render the svg to the terminal
 pub fn draw_svg(
-    strings: Vec<&str>,
+    strings: Vec<String>,
     frame: &mut Frame<CrosstermBackend<Stdout>>,
     layout: Rect,
-    path: Option<&str>
+    path: Option<&str>,
 ) {
-
     let width = layout.width as f64;
     let height = layout.height as f64;
     let ratio = width / height;
@@ -81,7 +92,7 @@ pub fn draw_svg(
     draw_svg.push_str(header_1);
     draw_svg.push_str(header_2);
     for i in strings {
-        draw_svg.push_str(i);
+        draw_svg.push_str(&i);
     }
     draw_svg.push_str(footer);
     //save svg to file
@@ -128,7 +139,7 @@ pub fn draw_svg(
                     .parse::<u8>()
                     .unwrap(),
             );
-            let dataset = Dataset::default()
+            let dataset = SvgDataset::default()
                 .data(&i.0)
                 .marker(symbols::Marker::Blocks(symbols::Blocks::FULL))
                 .graph_type(OtherLine)
@@ -158,7 +169,7 @@ pub fn draw_svg(
                     .parse::<u8>()
                     .unwrap(),
             );
-            let dataset = Dataset::default()
+            let dataset = SvgDataset::default()
                 .data(&i.0)
                 .marker(symbols::Marker::Braille)
                 .graph_type(OtherLine)
@@ -166,17 +177,5 @@ pub fn draw_svg(
             datasets.push(dataset);
         }
     }
-    let chart = Chart::new(datasets)
-        .x_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::Gray))
-                .bounds([0.0, 100.0]),
-        )
-        .y_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::Gray))
-                .bounds([0.0, 100.0]),
-        );
-    frame.render_widget(chart, layout);
-
+    canvas_draw(frame, layout, datasets)
 }

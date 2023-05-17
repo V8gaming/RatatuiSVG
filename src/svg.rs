@@ -1,24 +1,17 @@
-use std::{
-    collections::HashMap,
-    fs
-};
+use std::{collections::HashMap, fs};
 
 use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    /// A regex to match the fill attribute of an SVG path.
-    /// to get [x, y, x] from fill: rgb(x, y, z);
-    static ref FILL_RE: Regex = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();}
+/// A regex to match the fill attribute of an SVG path.
+/// to get [x, y, x] from fill: rgb(x, y, z);
+static ref FILL_RE: Regex = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();}
 
 /// A type to hold the points, style, and if filled of an SVG path.
 pub type SvgPoints = (Vec<(f64, f64, bool)>, String, bool);
 
-pub fn render_svg(
-    svg: String,
-    ratio: f64,
-    hash_map: &mut HashMap<usize, SvgPoints>,
-) {
+pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoints>) {
     let mut f = String::new();
     if svg.ends_with(".svg") {
         f = fs::read_to_string(svg).unwrap();
@@ -35,151 +28,152 @@ pub fn render_svg(
                 name,
                 attributes,
                 namespace: _,
-            } => {
-                match name.local_name.as_str() {
-                   "svg" => {
-                        let viewbox = &attributes[0].value;
-                        let viewbox_data = viewbox.split(' ').collect::<Vec<&str>>();
-                        let width = viewbox_data[2].parse::<f64>().unwrap();
-                        let height = viewbox_data[3].parse::<f64>().unwrap();
-                        view_box.push(width);
-                        view_box.push(height);
-                   },
-                   "path" => {
-                        let mut variables = ("".to_string(), "".to_string(), "".to_string());
-                        for i in &attributes {
-                            match i.name.local_name.as_str() {
-                                "d" => {
-                                    variables.0 = i.value.to_owned();
-                                }
-                                "style" => {
-                                    variables.1 = i.value.to_owned();
-                                }
-                                "transform" => {
-                                    variables.2 = i.value.to_owned();
-                                }
-
-                                _ => {}
-                            }
-                        }
-                        objects.push(variables);
-                   },
-                   "line" => {
-                        let len = hash_map.keys().len();
-                        let mut variables = (
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                        );
-                        for i in &attributes {
-                            match i.name.local_name.as_str() {
-                                "x1" => {
-                                    variables.0 = i.value.to_owned();
-                                }
-                                "y1" => {
-                                    variables.1 = i.value.to_owned();
-                                }
-                                "x2" => {
-                                    variables.2 = i.value.to_owned();
-                                }
-                                "y2" => {
-                                    variables.3 = i.value.to_owned();
-                                }
-                                "style" => {
-                                    variables.4 = i.value.to_owned();
-                                }
-                                _ => {}
-                            }
-                        }
-                        hash_map.insert(
-                            len + 1,
-                            (
-                                vec![
-                                    (
-                                        variables.0.parse::<f64>().unwrap() / (view_box[0] / 100.0),
-                                        100.0
-                                            - variables.1.parse::<f64>().unwrap()
-                                                / (view_box[1] / 100.0),
-                                        true
-                                    ),
-                                    (
-                                        variables.2.parse::<f64>().unwrap() / (view_box[0] / 100.0),
-                                        100.0
-                                            - variables.3.parse::<f64>().unwrap()
-                                                / (view_box[1] / 100.0),
-                                        true,
-                                    ),
-                                ],
-                                variables.4,
-                                false,
-                            ),
-                        );
-                   }
-                   "rect" => {
-                        let len = hash_map.keys().len();
-                        let mut variables = (
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                            "".to_string(),
-                        );
-                        for i in &attributes {
-                            match i.name.local_name.as_str() {
-                                "x" => {
-                                    variables.0 = i.value.to_owned();
-                                }
-                                "y" => {
-                                    variables.1 = i.value.to_owned();
-                                }
-                                "width" => {
-                                    variables.2 = i.value.to_owned();
-                                }
-                                "height" => {
-                                    variables.3 = i.value.to_owned();
-                                }
-                                "style" => {
-                                    variables.4 = i.value.to_owned();
-                                }
-                                _ => {}
-                            }
-                        }
-                        let x = variables.0.parse::<f64>().unwrap() / (view_box[0] / 100.0);
-                        let y = variables.1.parse::<f64>().unwrap() / (view_box[1] / 100.0);
-                        let width = variables.2.parse::<f64>().unwrap() / (view_box[0] / 100.0);
-                        let height = variables.3.parse::<f64>().unwrap() / (view_box[1] / 100.0);
-                        let style = variables.4.to_owned();
-                        hash_map.insert(
-                            len + 1,
-                            (
-                                vec![
-                                    (x, 100.0 - y, true),
-                                    (x + width, 100.0 - y, true),
-                                    (x + width, 100.0 - (y + height), true),
-                                    (x, 100.0 - (y + height), true),
-                                    (x, 100.0 - y, true),
-                                ],
-                                variables.4,
-                                false,
-                            ),
-                        );
-                        let mut fill: Vec<(f64, f64, bool)> = Vec::new();
-                        if FILL_RE.is_match(&style) {
-                            for i in (x as usize)..(x + width) as usize {
-                                for j in (y as usize)..(y + height) as usize {
-                                    fill.push((i as f64, j as f64, true));
-                                }
-                            }
-                        }
-                        hash_map.insert(hash_map.len(), (fill, style, true));
-                   }
-                   _ => {}
+            } => match name.local_name.as_str() {
+                "svg" => {
+                    let viewbox = &attributes[0].value;
+                    let viewbox_data = viewbox.split(' ').collect::<Vec<&str>>();
+                    let width = viewbox_data[2].parse::<f64>().unwrap();
+                    let height = viewbox_data[3].parse::<f64>().unwrap();
+                    view_box.push(width);
+                    view_box.push(height);
                 }
+                "path" => {
+                    let mut variables = ("".to_string(), "".to_string(), "".to_string());
+                    for i in &attributes {
+                        match i.name.local_name.as_str() {
+                            "d" => {
+                                variables.0 = i.value.to_owned();
+                            }
+                            "style" => {
+                                variables.1 = i.value.to_owned();
+                            }
+                            "transform" => {
+                                variables.2 = i.value.to_owned();
+                            }
 
-            }
-            xml::reader::XmlEvent::StartDocument { version: _, encoding: _, standalone: _ } => continue,
+                            _ => {}
+                        }
+                    }
+                    objects.push(variables);
+                }
+                "line" => {
+                    let len = hash_map.keys().len();
+                    let mut variables = (
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                    );
+                    for i in &attributes {
+                        match i.name.local_name.as_str() {
+                            "x1" => {
+                                variables.0 = i.value.to_owned();
+                            }
+                            "y1" => {
+                                variables.1 = i.value.to_owned();
+                            }
+                            "x2" => {
+                                variables.2 = i.value.to_owned();
+                            }
+                            "y2" => {
+                                variables.3 = i.value.to_owned();
+                            }
+                            "style" => {
+                                variables.4 = i.value.to_owned();
+                            }
+                            _ => {}
+                        }
+                    }
+                    hash_map.insert(
+                        len + 1,
+                        (
+                            vec![
+                                (
+                                    variables.0.parse::<f64>().unwrap() / (view_box[0] / 100.0),
+                                    100.0
+                                        - variables.1.parse::<f64>().unwrap()
+                                            / (view_box[1] / 100.0),
+                                    true,
+                                ),
+                                (
+                                    variables.2.parse::<f64>().unwrap() / (view_box[0] / 100.0),
+                                    100.0
+                                        - variables.3.parse::<f64>().unwrap()
+                                            / (view_box[1] / 100.0),
+                                    true,
+                                ),
+                            ],
+                            variables.4,
+                            false,
+                        ),
+                    );
+                }
+                "rect" => {
+                    let len = hash_map.keys().len();
+                    let mut variables = (
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                        "".to_string(),
+                    );
+                    for i in &attributes {
+                        match i.name.local_name.as_str() {
+                            "x" => {
+                                variables.0 = i.value.to_owned();
+                            }
+                            "y" => {
+                                variables.1 = i.value.to_owned();
+                            }
+                            "width" => {
+                                variables.2 = i.value.to_owned();
+                            }
+                            "height" => {
+                                variables.3 = i.value.to_owned();
+                            }
+                            "style" => {
+                                variables.4 = i.value.to_owned();
+                            }
+                            _ => {}
+                        }
+                    }
+                    let x = variables.0.parse::<f64>().unwrap() / (view_box[0] / 100.0);
+                    let y = variables.1.parse::<f64>().unwrap() / (view_box[1] / 100.0);
+                    let width = variables.2.parse::<f64>().unwrap() / (view_box[0] / 100.0);
+                    let height = variables.3.parse::<f64>().unwrap() / (view_box[1] / 100.0);
+                    let style = variables.4.to_owned();
+                    hash_map.insert(
+                        len + 1,
+                        (
+                            vec![
+                                (x, 100.0 - y, true),
+                                (x + width, 100.0 - y, true),
+                                (x + width, 100.0 - (y + height), true),
+                                (x, 100.0 - (y + height), true),
+                                (x, 100.0 - y, true),
+                            ],
+                            variables.4,
+                            false,
+                        ),
+                    );
+                    let mut fill: Vec<(f64, f64, bool)> = Vec::new();
+                    if FILL_RE.is_match(&style) {
+                        for i in (x as usize)..(x + width) as usize {
+                            for j in (y as usize)..(y + height) as usize {
+                                fill.push((i as f64, j as f64, true));
+                            }
+                        }
+                    }
+                    hash_map.insert(hash_map.len(), (fill, style, true));
+                }
+                _ => {}
+            },
+            xml::reader::XmlEvent::StartDocument {
+                version: _,
+                encoding: _,
+                standalone: _,
+            } => continue,
             xml::reader::XmlEvent::EndDocument => continue,
             xml::reader::XmlEvent::ProcessingInstruction { name: _, data: _ } => continue,
             xml::reader::XmlEvent::EndElement { name: _ } => continue,
@@ -241,12 +235,9 @@ fn draw_path(
                 string_groups.push(Vec::new());
                 string_groups[str_index].push(i);
             }
-
         } else {
             string_groups[str_index].push(i);
         }
-            
-        
     }
     for i in string_groups.into_iter() {
         //mainstruct.data.log.push(format!("i: {:?}", i));
@@ -273,8 +264,7 @@ fn draw_path(
                         x = transformed_points.0;
                         y = transformed_points.1;
                     }
-                    
-                    
+
                     if start.is_none() {
                         //println!("Start: {:?}", (x, 100.0 - y));
                         start = Some((x, 100.0 - y, true));
@@ -439,7 +429,7 @@ fn draw_path(
                     let end_point_x = i[6].parse::<f64>().unwrap() / x_scale;
                     let end_point_y = i[7].parse::<f64>().unwrap() / y_scale;
 
-                    let mut arc_points:Vec<(f64, f64, bool)> = elliptical_arc(
+                    let mut arc_points: Vec<(f64, f64, bool)> = elliptical_arc(
                         prev_point,
                         (rx, ry),
                         x_axis_rotation,
@@ -488,11 +478,9 @@ fn draw_path(
 
                 _ => {}
             }
-            
         }
 
         //println!("{:?}", data);
-        
     }
     // if "i" & "j" is within points than push to fill, i is 0 to 100,  j is 0 to 100
     let x_points: Vec<f64> = points.iter().map(|x| x.0).collect();
@@ -558,10 +546,15 @@ fn quadratic_bezier_curve(
     let x = (1.0 - t).powi(2) * start.0 + 2.0 * (1.0 - t) * t * control.0 + t.powi(2) * end.0;
     let y = (1.0 - t).powi(2) * start.1 + 2.0 * (1.0 - t) * t * control.1 + t.powi(2) * end.1;
     // if transform exists use transform, else return x,y
-    if transform_str == None {
+    if transform_str.is_none() {
         (x, y, true)
     } else {
-        let (x,y) = transform(x, y, transform_str.expect("Unable to unwrap transform_str"), scales);
+        let (x, y) = transform(
+            x,
+            y,
+            transform_str.expect("Unable to unwrap transform_str"),
+            scales,
+        );
         (x, y, true)
     }
 }
@@ -588,7 +581,12 @@ fn cubic_bezier_curve(
     if transform_str == None {
         (x, y, true)
     } else {
-        let (x, y) = transform(x, y, transform_str.expect("Unable to unwrap transform_str"), scales);
+        let (x, y) = transform(
+            x,
+            y,
+            transform_str.expect("Unable to unwrap transform_str"),
+            scales,
+        );
         (x, y, true)
     }
 }
@@ -621,18 +619,21 @@ fn elliptical_arc(
     }
 
     let (cx_prime, cy_prime) = {
-        let sign = if large_arc_flag == sweep_flag { -1.0 } else { 1.0 };
-        let factor = (
-            (rx.powi(2) * ry.powi(2) - rx.powi(2) * y1_prime.powi(2) - ry.powi(2) * x1_prime.powi(2))
-                / (rx.powi(2) * y1_prime.powi(2) + ry.powi(2) * x1_prime.powi(2))
-        )
-            .sqrt();
+        let sign = if large_arc_flag == sweep_flag {
+            -1.0
+        } else {
+            1.0
+        };
+        let factor = ((rx.powi(2) * ry.powi(2)
+            - rx.powi(2) * y1_prime.powi(2)
+            - ry.powi(2) * x1_prime.powi(2))
+            / (rx.powi(2) * y1_prime.powi(2) + ry.powi(2) * x1_prime.powi(2)))
+        .sqrt();
         (
             sign * factor * rx * y1_prime / ry,
             -sign * factor * ry * x1_prime / rx,
         )
     };
-
 
     let (cx, cy) = (
         cos_angle * cx_prime - sin_angle * cy_prime + (x1 + x2) / 2.0,
@@ -641,8 +642,8 @@ fn elliptical_arc(
 
     let start_angle = ((y1_prime - cy_prime) / ry).atan2((x1_prime - cx_prime) / rx);
     let delta_angle = {
-        let delta_angle = ((y1_prime * -1.0 - cy_prime) / ry).atan2((-x1_prime - cx_prime) / rx)
-            - start_angle;
+        let delta_angle =
+            ((y1_prime * -1.0 - cy_prime) / ry).atan2((-x1_prime - cx_prime) / rx) - start_angle;
         let delta_angle = if delta_angle * (sweep_flag as i32 as f64 * 2.0 - 1.0) < 0.0 {
             delta_angle + 2.0 * std::f64::consts::PI
         } else {
@@ -667,7 +668,7 @@ fn elliptical_arc(
     }
     points
 }
-fn transform(x: f64, y: f64,  transform: &str, scales: (f64, f64)) -> (f64, f64) {
+fn transform(x: f64, y: f64, transform: &str, scales: (f64, f64)) -> (f64, f64) {
     if transform.starts_with("matrix") {
         //matrix(0.963456, 0.267867, -0.267867, 0.963456, -67.327988, 51.384823)
         let data = transform.strip_prefix("matrix(").unwrap();
@@ -706,7 +707,7 @@ fn transform(x: f64, y: f64,  transform: &str, scales: (f64, f64)) -> (f64, f64)
         let sin_a = angle_rad.sin();
         let new_x = x * cos_a - y * sin_a;
         let new_y = x * sin_a + y * cos_a;
-    
+
         return (new_x, new_y);
     } else if transform.starts_with("skewX") {
         let data = transform.strip_prefix("skewX(").unwrap();
@@ -726,6 +727,3 @@ fn transform(x: f64, y: f64,  transform: &str, scales: (f64, f64)) -> (f64, f64)
         return (x, y);
     }
 }
-
-
-    
