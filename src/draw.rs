@@ -107,11 +107,11 @@ pub fn draw_svg(
     let re = Regex::new(r"stroke:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
     let bg_re = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
     for i in hash_map.values() {
-        let f = File::create("test.txt").unwrap();
+/*         let f = File::create("test.txt").unwrap();
         let mut f = BufWriter::new(f);
         for j in i.0.iter() {
             writeln!(f, "{j:?}").unwrap();
-        }
+        } */
         if i.2 {
             let bg_color = Color::Rgb(
                 bg_re
