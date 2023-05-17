@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -12,15 +12,9 @@ static ref FILL_RE: Regex = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);
 pub type SvgPoints = (Vec<(f64, f64, bool)>, String, bool);
 
 pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoints>) {
-    let mut f = String::new();
-    if svg.ends_with(".svg") {
-        f = fs::read_to_string(svg).unwrap();
-    } else {
-        f = svg;
-    }
     let mut view_box = Vec::new();
     // read the whole file
-    let parser = xml::reader::EventReader::from_str(f.as_str());
+    let parser = xml::reader::EventReader::from_str(svg.as_str());
     let mut objects = Vec::new();
     for event in parser {
         match event.unwrap() {
@@ -189,7 +183,7 @@ pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoin
             object.1 .0.to_owned(),
             view_box.clone(),
             ratio,
-            &object.1 .2,
+            Some(&object.1 .2),
             &object.1 .1,
         );
         //mainstruct.data.log.push(format!("Points: {:?}", points));
@@ -207,7 +201,7 @@ fn draw_path(
     strings: String,
     view_box: Vec<f64>,
     ratio: f64,
-    transform_str: &str,
+    transform_str: Option<&str>,
     style: &str,
 ) -> Points {
     let mut points: Vec<(f64, f64, bool)> = Vec::new();
@@ -257,12 +251,12 @@ fn draw_path(
                     let y = i[2].parse::<f64>().unwrap();
                     let mut x = x / x_scale;
                     let mut y = y / y_scale;
-                    if Some(transform_str).is_none() {
-                        continue;
-                    } else {
-                        let transformed_points = transform(x, y, transform_str, (x_scale, y_scale));
+                    if let Some(ts) = transform_str {
+                        let transformed_points = transform(x, y, ts, (x_scale, y_scale));
                         x = transformed_points.0;
                         y = transformed_points.1;
+                    } else {
+                        continue;
                     }
 
                     if start.is_none() {
@@ -283,12 +277,12 @@ fn draw_path(
                     let y = i[2].parse::<f64>().unwrap();
                     let mut x = x / x_scale;
                     let mut y = y / y_scale;
-                    if Some(transform_str) == None {
-                        continue;
-                    } else {
-                        let transformed_points = transform(x, y, transform_str, (x_scale, y_scale));
+                    if let Some(ts) = transform_str {
+                        let transformed_points = transform(x, y, ts, (x_scale, y_scale));
                         x = transformed_points.0;
                         y = transformed_points.1;
+                    } else {
+                        continue;
                     }
                     points.push((x, 100.0 - y, true));
                     prev_point = (x, 100.0 - y, true);
@@ -310,7 +304,7 @@ fn draw_path(
                             &(end_point_x, end_point_y),
                             t,
                             ratio,
-                            Some(transform_str),
+                            transform_str,
                             (x_scale, y_scale),
                         );
                         points.push(point);
@@ -337,7 +331,7 @@ fn draw_path(
                             &(control_point_2_x, control_point_2_y),
                             &(end_point_x, end_point_y),
                             t,
-                            Some(transform_str),
+                            transform_str,
                             (x_scale, y_scale),
                         );
                         points.push(point);
@@ -377,7 +371,7 @@ fn draw_path(
                             &(control_point_2_x, control_point_2_y),
                             &(end_point_x, end_point_y),
                             t,
-                            Some(transform_str),
+                            transform_str,
                             (x_scale, y_scale),
                         );
                         points.push(point);
@@ -411,7 +405,7 @@ fn draw_path(
                             &(end_point_x, end_point_y),
                             t,
                             ratio,
-                            Some(transform_str),
+                            transform_str,
                             (x_scale, y_scale),
                         );
                         points.push(point);
@@ -446,13 +440,12 @@ fn draw_path(
                     // Horizontal Line
                     let mut end_point_x = i[1].parse::<f64>().unwrap() / x_scale;
                     let mut end_point_y = prev_point.1;
-                    if Some(transform_str) == None {
-                        continue;
-                    } else {
-                        let transformed_points =
-                            transform(end_point_x, end_point_y, transform_str, (x_scale, y_scale));
+                    if let Some(ts) = transform_str {
+                        let transformed_points = transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
                         end_point_x = transformed_points.0;
                         end_point_y = transformed_points.1;
+                    } else {
+                        continue;
                     }
                     points.push((end_point_x, end_point_y, true));
                     prev_point = (end_point_x, end_point_y, true);
@@ -462,13 +455,12 @@ fn draw_path(
                     // Vertical Line
                     let mut end_point_x = prev_point.0;
                     let mut end_point_y = 100.0 - i[1].parse::<f64>().unwrap() / y_scale;
-                    if Some(transform_str) == None {
-                        continue;
-                    } else {
-                        let transformed_points =
-                            transform(end_point_x, end_point_y, transform_str, (x_scale, y_scale));
+                    if let Some(ts) = transform_str {
+                        let transformed_points = transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
                         end_point_x = transformed_points.0;
                         end_point_y = transformed_points.1;
+                    } else {
+                        continue;
                     }
                     //println!("{:?}", (end_point_x, end_point_y));
                     points.push((end_point_x, end_point_y, true));
@@ -510,8 +502,6 @@ fn draw_path(
                 fill.push((i as f64, j as f64, true));
             }
         }
-        //let mut f = File::create("fill.txt").unwrap();
-        //writeln!(f, "{fill:?}").unwrap();
 
         (points, Some(fill))
     } else {
@@ -519,21 +509,6 @@ fn draw_path(
     }
 }
 
-/* fn split_keep<'a>(r: &Regex, text: &'a str) -> Vec<&'a str> {
-    let mut result = Vec::new();
-    let mut last = 0;
-    for (index, matched) in text.match_indices(r) {
-        if last != index {
-            result.push(&text[last..index]);
-        }
-        result.push(matched);
-        last = index + matched.len();
-    }
-    if last < text.len() {
-        result.push(&text[last..]);
-    }
-    result
-} */
 fn quadratic_bezier_curve(
     start: &(f64, f64, bool),
     control: &(f64, f64),
@@ -546,17 +521,13 @@ fn quadratic_bezier_curve(
     let x = (1.0 - t).powi(2) * start.0 + 2.0 * (1.0 - t) * t * control.0 + t.powi(2) * end.0;
     let y = (1.0 - t).powi(2) * start.1 + 2.0 * (1.0 - t) * t * control.1 + t.powi(2) * end.1;
     // if transform exists use transform, else return x,y
-    if transform_str.is_none() {
+    if let Some(ts) = transform_str {
+        let (x, y) = transform(x, y, ts, scales);
         (x, y, true)
     } else {
-        let (x, y) = transform(
-            x,
-            y,
-            transform_str.expect("Unable to unwrap transform_str"),
-            scales,
-        );
         (x, y, true)
     }
+    
 }
 
 fn cubic_bezier_curve(
@@ -578,17 +549,13 @@ fn cubic_bezier_curve(
             + 3.0 * (1.0 - t) * t.powi(2) * control_2.1
             + t.powi(3) * end.1);
     // if transform exists use transform, else return x,y
-    if transform_str == None {
+    if let Some(ts) = transform_str {
+        let (x, y) = transform(x, y, ts, scales);
         (x, y, true)
     } else {
-        let (x, y) = transform(
-            x,
-            y,
-            transform_str.expect("Unable to unwrap transform_str"),
-            scales,
-        );
         (x, y, true)
     }
+    
 }
 
 fn elliptical_arc(

@@ -2,7 +2,7 @@ use std::io::Stdout;
 
 use ratatui::{
     style::Color,
-    widgets::{canvas::{self, Canvas, Line, Map, Points}, Widget, GraphType}, 
+    widgets::{canvas::{Canvas, Line, Points}, GraphType}, 
     backend::CrosstermBackend, layout::Rect, Frame,
 };
 

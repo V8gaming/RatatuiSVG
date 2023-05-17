@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-<path d="M 25.000 50.000 C 25.000 30.000 75.000 27.000 45.000 50.000" style="stroke: rgb(255, 0, 0); stroke-width: 1; fill: none;"/>
+<path d="M 25.000 50.000 C 25.000 30.000 90.000 40.000 80.000 50.000" style="stroke: rgb(255, 0, 0); stroke-width: 1; fill: none;"/>
 </svg>

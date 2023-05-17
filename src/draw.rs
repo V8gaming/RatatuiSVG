@@ -1,6 +1,6 @@
 use crate::canvas::canvas_draw;
 use crate::svg::{render_svg, SvgPoints};
-use crate::widget::{Svg, SvgDataset};
+use crate::widget::SvgDataset;
 use crate::INDEX;
 use ratatui::widgets::GraphType::Line as OtherLine;
 use ratatui::{
@@ -13,11 +13,9 @@ use ratatui::{
     Frame, Terminal,
 };
 use regex::Regex;
-use std::io::BufWriter;
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{self, Stdout, Write},
+    io::{self, Stdout},
 };
 use itertools::Itertools;
 
@@ -60,7 +58,6 @@ pub fn draw(
             svgs.get(&keys[index]).unwrap().clone(),
             frame,
             chunks[0],
-            None,
         );
     });
     drop(draw);
@@ -72,7 +69,6 @@ pub fn draw_svg(
     strings: Vec<String>,
     frame: &mut Frame<CrosstermBackend<Stdout>>,
     layout: Rect,
-    path: Option<&str>,
 ) {
     let width = layout.width as f64;
     let height = layout.height as f64;
@@ -98,11 +94,8 @@ pub fn draw_svg(
     //save svg to file
 
     let mut hash_map: HashMap<usize, SvgPoints> = HashMap::new();
-    if path.is_some() {
-        render_svg(path.unwrap().to_owned(), ratio, &mut hash_map)
-    } else {
-        render_svg(draw_svg, ratio, &mut hash_map);
-    }
+    render_svg(draw_svg, ratio, &mut hash_map);
+
     let mut datasets = Vec::new();
     let re = Regex::new(r"stroke:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
     let bg_re = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
