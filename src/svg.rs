@@ -11,7 +11,7 @@ static ref FILL_RE: Regex = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);
 /// A type to hold the points, style, and if filled of an SVG path.
 pub type SvgPoints = (Vec<(f64, f64, bool)>, String, bool);
 
-pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoints>) {
+pub fn render_svg(svg: String, hash_map: &mut HashMap<usize, SvgPoints>) {
     let mut view_box = Vec::new();
     // read the whole file
     let parser = xml::reader::EventReader::from_str(svg.as_str());
@@ -151,15 +151,16 @@ pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoin
                             false,
                         ),
                     );
-                    let mut fill: Vec<(f64, f64, bool)> = Vec::new();
+
                     if FILL_RE.is_match(&style) {
+                        let mut fill: Vec<(f64, f64, bool)> = Vec::new();
                         for i in (x as usize)..(x + width) as usize {
                             for j in (y as usize)..(y + height) as usize {
                                 fill.push((i as f64, j as f64, true));
                             }
                         }
+                        hash_map.insert(hash_map.len(), (fill, style, true));
                     }
-                    hash_map.insert(hash_map.len(), (fill, style, true));
                 }
                 _ => {}
             },
@@ -182,7 +183,6 @@ pub fn render_svg(svg: String, ratio: f64, hash_map: &mut HashMap<usize, SvgPoin
         let points = draw_path(
             object.1 .0.to_owned(),
             view_box.clone(),
-            ratio,
             Some(&object.1 .2),
             &object.1 .1,
         );
@@ -200,7 +200,6 @@ pub type Points = (Vec<(f64, f64, bool)>, Option<Vec<(f64, f64, bool)>>);
 fn draw_path(
     strings: String,
     view_box: Vec<f64>,
-    ratio: f64,
     transform_str: Option<&str>,
     style: &str,
 ) -> Points {
@@ -252,7 +251,7 @@ fn draw_path(
                     let mut x = x / x_scale;
                     let mut y = y / y_scale;
                     if let Some(ts) = transform_str {
-                        let transformed_points = transform(x, y, ts, (x_scale, y_scale));
+                        let transformed_points: (f64, f64) = transform(x, y, ts, (x_scale, y_scale));
                         x = transformed_points.0;
                         y = transformed_points.1;
                     } else {
@@ -303,7 +302,6 @@ fn draw_path(
                             &(control_point_x, control_point_y),
                             &(end_point_x, end_point_y),
                             t,
-                            ratio,
                             transform_str,
                             (x_scale, y_scale),
                         );
@@ -343,8 +341,8 @@ fn draw_path(
                     );
                 }
                 "S" => {
-                    let mut control_point_1_x = 0.0;
-                    let mut control_point_1_y = 0.0;
+                    let control_point_1_x: f64;
+                    let control_point_1_y: f64;
                     let whitelist = vec!["C", "S"];
                     if whitelist.contains(&prev_command) {
                         // first control point is reflection of second control point on the previous command relative to the current point
@@ -381,8 +379,8 @@ fn draw_path(
                 }
                 "T" => {
                     // Smooth Quadratic Bezier Curve
-                    let mut control_point_x = 0.0;
-                    let mut control_point_y = 0.0;
+                    let control_point_x: f64;
+                    let control_point_y: f64;
                     let whitelist = vec!["Q", "T"];
                     if whitelist.contains(&prev_command) {
                         // first control point is reflection of second control point on the previous command relative to the current point
@@ -404,7 +402,6 @@ fn draw_path(
                             &(control_point_x, control_point_y),
                             &(end_point_x, end_point_y),
                             t,
-                            ratio,
                             transform_str,
                             (x_scale, y_scale),
                         );
@@ -441,7 +438,8 @@ fn draw_path(
                     let mut end_point_x = i[1].parse::<f64>().unwrap() / x_scale;
                     let mut end_point_y = prev_point.1;
                     if let Some(ts) = transform_str {
-                        let transformed_points = transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
+                        let transformed_points =
+                            transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
                         end_point_x = transformed_points.0;
                         end_point_y = transformed_points.1;
                     } else {
@@ -456,7 +454,8 @@ fn draw_path(
                     let mut end_point_x = prev_point.0;
                     let mut end_point_y = 100.0 - i[1].parse::<f64>().unwrap() / y_scale;
                     if let Some(ts) = transform_str {
-                        let transformed_points = transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
+                        let transformed_points =
+                            transform(end_point_x, end_point_y, ts, (x_scale, y_scale));
                         end_point_x = transformed_points.0;
                         end_point_y = transformed_points.1;
                     } else {
@@ -475,8 +474,8 @@ fn draw_path(
         //println!("{:?}", data);
     }
     // if "i" & "j" is within points than push to fill, i is 0 to 100,  j is 0 to 100
-    let x_points: Vec<f64> = points.iter().map(|x| x.0).collect();
-    let y_points: Vec<f64> = points.iter().map(|x| x.1).collect();
+    let x_points: Vec<f64> = points.iter().map(|x: &(f64, f64, bool)| x.0).collect();
+    let y_points: Vec<f64> = points.iter().map(|x: &(f64, f64, bool)| x.1).collect();
     if FILL_RE.is_match(style) {
         let x_min: usize = *x_points
             .iter()
@@ -514,7 +513,6 @@ fn quadratic_bezier_curve(
     control: &(f64, f64),
     end: &(f64, f64),
     t: f64,
-    ratio: f64,
     transform_str: Option<&str>,
     scales: (f64, f64),
 ) -> (f64, f64, bool) {
@@ -527,7 +525,6 @@ fn quadratic_bezier_curve(
     } else {
         (x, y, true)
     }
-    
 }
 
 fn cubic_bezier_curve(
@@ -555,7 +552,6 @@ fn cubic_bezier_curve(
     } else {
         (x, y, true)
     }
-    
 }
 
 fn elliptical_arc(

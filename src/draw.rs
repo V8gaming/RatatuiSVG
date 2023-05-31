@@ -1,78 +1,21 @@
 use crate::canvas::canvas_draw;
+use crate::canvas::SvgDataset;
 use crate::svg::{render_svg, SvgPoints};
-use crate::widget::SvgDataset;
-use crate::INDEX;
 use ratatui::widgets::GraphType::Line as OtherLine;
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Style},
-    symbols::{self, DOT},
-    text::Spans,
-    widgets::{Block, Borders, Tabs},
-    Frame, Terminal,
+    symbols, Frame,
 };
 use regex::Regex;
-use std::{
-    collections::HashMap,
-    io::{self, Stdout},
-};
-use itertools::Itertools;
-
-/// render the tabs in a ratatui terminal
-pub fn draw(
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    tabs: Vec<Spans>,
-    svgs: HashMap<String, Vec<String>>,
-) -> Result<(), io::Error> {
-    let draw = terminal.draw(|frame| {
-        let terminal_rect = frame.size();
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .margin(1)
-            .constraints([Constraint::Percentage(100)].as_ref())
-            .split(terminal_rect);
-
-        let left_tabs = Tabs::new(tabs)
-            .block(
-                Block::default()
-                    .title("Graphical renderer")
-                    .borders(Borders::all())
-                    .style(Style::default().fg(Color::White)),
-            )
-            .highlight_style(Style::default().fg(Color::Yellow))
-            .divider(DOT)
-            .select(
-                INDEX
-                    .load(std::sync::atomic::Ordering::Relaxed)
-                    .try_into()
-                    .unwrap(),
-            );
-        frame.render_widget(left_tabs, chunks[0]);
-        let keys = svgs.keys().sorted().cloned().collect::<Vec<String>>();
-        let index: usize = INDEX
-            .load(std::sync::atomic::Ordering::Relaxed)
-            .try_into()
-            .unwrap();
-        draw_svg(
-            svgs.get(&keys[index]).unwrap().clone(),
-            frame,
-            chunks[0],
-        );
-    });
-    drop(draw);
-    Ok(())
-}
+use std::{collections::HashMap, io::Stdout};
 
 /// parse and render the svg to the terminal
-pub fn draw_svg(
-    strings: Vec<String>,
-    frame: &mut Frame<CrosstermBackend<Stdout>>,
-    layout: Rect,
-) {
-    let width = layout.width as f64;
-    let height = layout.height as f64;
-    let ratio = width / height;
+pub fn draw_svg(strings: Vec<String>, frame: &mut Frame<CrosstermBackend<Stdout>>, layout: Rect) {
+    //let width = layout.width as f64;
+    //let height = layout.height as f64;
+    //let ratio = width / height;
     /*
     <?xml version="1.0" encoding="utf-8"?>
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -94,13 +37,13 @@ pub fn draw_svg(
     //save svg to file
 
     let mut hash_map: HashMap<usize, SvgPoints> = HashMap::new();
-    render_svg(draw_svg, ratio, &mut hash_map);
+    render_svg(draw_svg, &mut hash_map);
 
     let mut datasets = Vec::new();
     let re = Regex::new(r"stroke:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
     let bg_re = Regex::new(r"fill:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);").unwrap();
     for i in hash_map.values() {
-/*         let f = File::create("test.txt").unwrap();
+        /*         let f = File::create("test.txt").unwrap();
         let mut f = BufWriter::new(f);
         for j in i.0.iter() {
             writeln!(f, "{j:?}").unwrap();
